@@ -1,0 +1,12 @@
+# Temporary and binary files
+*.log
+__pycache__
+__pycache__/*
+.cache/*
+.DS_Store
+*/.ipynb_checkpoints/*
+Icon[^M]
+
+# Results and figure directories
+figures/
+results/
