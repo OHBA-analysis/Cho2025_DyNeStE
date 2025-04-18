@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     # Set directories
     BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/simulation"
-    MODEL_DIR = os.path.join(BASE_DIR, "models")
+    MODEL_DIR = os.path.join(BASE_DIR, "results")
     FIG_DIR = os.path.join(BASE_DIR, "figures")
     os.makedirs(FIG_DIR, exist_ok=True)
 
