@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     # Set directories to store outputs
     BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/simulation"
-    SAVE_DIR = os.path.join(BASE_DIR, f"results/results_hmm_{run_id}")
+    SAVE_DIR = os.path.join(BASE_DIR, f"results/hmm/run{run_id}")
     os.makedirs(SAVE_DIR, exist_ok=True)
 
     # -------------- [2] Training Configurations -------------- #
@@ -87,9 +87,6 @@ if __name__ == "__main__":
     model = Model(config)
     model.summary()
 
-    # Add regularization for the observation model
-    model.set_regularizers(training_dataset)
-
     # Train model
     init_history = model.random_state_time_course_initialization(
         training_dataset,
@@ -135,6 +132,10 @@ if __name__ == "__main__":
     # Sample a state time course with the inferred transition probability matrix
     trans_prob = model.get_trans_prob()
     sam_stc = model.sample_state_time_course(25600)
+
+    # Match state orders between simulation and generation
+    order = modes.match_modes(sim_stc, sam_stc, return_order=True)[1]
+    sam_stc = sam_stc[:, order]
 
     # Save outputs
     outputs = {

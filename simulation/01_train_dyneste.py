@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     # Set directories to store outputs
     BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/simulation"
-    SAVE_DIR = os.path.join(BASE_DIR, f"results/results_dyneste_{run_id}")
+    SAVE_DIR = os.path.join(BASE_DIR, f"results/dyneste/run{run_id}")
     os.makedirs(SAVE_DIR, exist_ok=True)
 
     # -------------- [2] Training Configurations -------------- #
@@ -102,15 +102,13 @@ if __name__ == "__main__":
     model = Model(config)
     model.summary()
 
-    # Add regularization for the observation model
-    model.set_regularizers(training_dataset)
-
     # Train model
     init_history = model.random_subset_initialization(
         training_dataset,
         n_init=5,
-        n_epochs=1,
+        n_epochs=2,
         take=1,
+        do_gs_annealing=False,
     )  # initialization
     history = model.fit(training_dataset)  # full training
 
@@ -150,6 +148,11 @@ if __name__ == "__main__":
     # Sample a state time course with the model RNN
     sam_alp = model.sample_alpha(25600)
     sam_stc = modes.argmax_time_courses(sam_alp)
+
+    # Match state orders between simulation and generation
+    order = modes.match_modes(sim_stc, sam_stc, return_order=True)[1]
+    sam_alp = sam_alp[:, order]
+    sam_stc = sam_stc[:, order]
 
     # Save outputs
     outputs = {
