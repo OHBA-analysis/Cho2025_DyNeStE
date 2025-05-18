@@ -6,10 +6,10 @@ which has been edited for the purpose of this project.
 
 import logging
 import numpy as np
-import seaborn as sns
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import seaborn as sns
 
 from itertools import zip_longest
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
