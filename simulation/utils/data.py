@@ -66,7 +66,7 @@ def load_inf_params(dir_path, model_type, run_id):
     inf_params : dict
         Dictionary containing the inferred parameters.
     """
-    dir_path = os.path.join(dir_path, "results_{0}_{1}")
+    dir_path = os.path.join(dir_path, "{0}/run{1}")
     dir_name = dir_path.format(model_type, run_id)
     inf_params = load(os.path.join(dir_name, "inf_params.pkl"))
     return inf_params

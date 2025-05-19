@@ -37,8 +37,12 @@ if __name__ == "__main__":
     print("Step 2: Analyzing a representative simulation ...")
 
     # Load inferred parameters
-    dyneste_inf_params = ud.load_inf_params(MODEL_DIR, "dyneste", 0)
-    hmm_inf_params = ud.load_inf_params(MODEL_DIR, "hmm", 0)
+    dyneste_inf_params = ud.load_inf_params(
+        MODEL_DIR, "dyneste", dyneste_run_ids
+    )
+    hmm_inf_params = ud.load_inf_params(
+        MODEL_DIR, "hmm", hmm_run_ids
+    )
 
     # Get state time courses
     dyneste_sim_stc = dyneste_inf_params["sim_stc"]
