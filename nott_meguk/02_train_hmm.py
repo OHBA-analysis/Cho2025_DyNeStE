@@ -51,7 +51,7 @@ if __name__ == "__main__":
         learn_trans_prob=True,
         batch_size=256,
         learning_rate=0.01,
-        n_epochs=40,
+        n_epochs=20,
     )
 
     # -------------- [3] Model Training -------------- #
@@ -69,6 +69,9 @@ if __name__ == "__main__":
     # Build model
     model = Model(config)
     model.summary()
+
+    # Add regularization for the observation model
+    model.set_regularizers(training_data)
 
     # Train model
     init_history = model.random_state_time_course_initialization(
