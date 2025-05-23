@@ -8,7 +8,7 @@ from osl_dynamics import analysis
 from osl_dynamics.inference import modes
 from osl_dynamics.utils import plotting
 from utils.data import load, save, match_order
-from utils.plotting import DynamicVisualizer
+from utils.plotting import plot_alpha, DynamicVisualizer
 
 
 if __name__ == "__main__":
@@ -242,7 +242,7 @@ if __name__ == "__main__":
     # Plot alpha/state time courses (for one subject)
     print("(Step 5-5) Plotting alpha/state time courses ...")
     n_samples = int(Fs * 5) # 5 seconds
-    plotting.plot_alpha(
+    plot_alpha(
         alphas[0][:n_samples, :],
         stc[0][:n_samples, :],
         n_samples=n_samples,
@@ -250,6 +250,7 @@ if __name__ == "__main__":
         cmap="Set3",
         y_labels=["State Probabilities", "State Time Course"],
         title=f"{model_type.upper()}",
+        fig_kwargs={"figsize": (11, 5)},
         filename=os.path.join(FIG_DIR, "analysis/alpha_stc.png"),
     )  # plots for one example subject
 
