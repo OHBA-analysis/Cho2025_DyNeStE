@@ -177,7 +177,7 @@ def plot_alpha(
     cb = fig.colorbar(mappable, cax=cb_ax, ticks=np.arange(0.5, n_states, 1))
     cb.ax.set_yticklabels(range(1, n_states + 1))
 
-    # Save to file if a filename as been passed
+    # Save to file if a filename has been passed
     if filename is not None:
         save(fig, filename)
     else:
