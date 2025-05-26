@@ -159,14 +159,14 @@ if __name__ == "__main__":
     fano_path = os.path.join(DATA_DIR, "inference/fano_factor.pkl")
     
     if os.path.exists(fano_path):
-        # Load the fano factors
+        # Load the Fano factors
         print("Fano factors already exist. Loading ...")
         output = load(fano_path)
         inf_fano, sam_fano = output.values()
     else:
         print("Computing the Fano factor...")
 
-        # Compute the fano factors
+        # Compute the Fano factors
         inf_fano = np.array(
             modes.fano_factor(stc, window_lengths)
         )
@@ -175,7 +175,7 @@ if __name__ == "__main__":
         )
         # shape (*_fano): (n_subjects, n_windows, n_states)
 
-        # Save the fano factors
+        # Save the Fano factors
         save(
             {"inf_fano": inf_fano, "sam_fano": sam_fano},
             fano_path,
