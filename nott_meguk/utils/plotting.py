@@ -440,7 +440,7 @@ def plot_fano_factors(
     fano_factors : list of np.ndarray
         List of Fano factors for inferred and sampled state time courses.
         Each element should be a 2-D or 3-D array. Shape must be either 
-        (n_windows, n_subjects) or (n_subjects, n_windows, n_subjects).
+        (n_windows, n_states) or (n_subjects, n_windows, n_states).
     window_lengths : np.ndarray
         Array of window lengths used for Fano factor calculation.
         Shape must be (n_windows,).
@@ -468,14 +468,14 @@ def plot_fano_factors(
     # Validation
     for n, fano in enumerate(fano_factors):
         if fano.ndim == 3:
-            fano = np.mean(fano, axis=0) # average over subjects
+            fano = np.mean(fano, axis=0)  # average over subjects
             fano_factors[n] = fano
             # shape: (n_windows, n_states)
         if fano.ndim != 2:
-            raise ValueError("fano factors should be either a 2-D or 3-D array.")
+            raise ValueError("Fano factors should be either a 2-D or 3-D array.")
         if fano.shape[0] != len(window_lengths):
             raise ValueError(
-                "fano factors should have the same number of windows as window_lengths."
+                "Fano factors should have the same number of windows as window_lengths."
             )
         
     if sig_indices is not None:
@@ -498,7 +498,7 @@ def plot_fano_factors(
 
     # Get the number of states
     if inf_fano_factors.shape[1] != sam_fano_factors.shape[1]:
-        raise ValueError("fano factors should have the same number of states.")
+        raise ValueError("Fano factors should have the same number of states.")
     n_states = fano_factors[0].shape[1]
 
     # Get the significant indices if provided
@@ -510,7 +510,7 @@ def plot_fano_factors(
     # Set colormap
     palette, color_ls, _ = _get_color_tools("tol_bright", n_states)
     
-    # Visualize fano factors
+    # Visualize Fano factors
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(8, 6))
     x_windows = (window_lengths / sampling_frequency) * 1000 # samples to milliseconds
     for i in range(n_states):
