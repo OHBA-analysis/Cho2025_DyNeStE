@@ -4,7 +4,6 @@
 import os
 import mne
 import numpy as np
-
 from utils import plotting as up
 from utils.data import load
 
@@ -74,7 +73,7 @@ if __name__ == "__main__":
             threshold=3,
             stat_fun=mne.stats.ttest_ind_no_p,
             tail=0,
-            n_jobs=8,
+            n_jobs=n_jobs,
         )
         for i, p in enumerate(cluster_pv):
             if p < thr:
@@ -89,7 +88,7 @@ if __name__ == "__main__":
             threshold=3,
             stat_fun=mne.stats.ttest_ind_no_p,
             tail=0,
-            n_jobs=8,
+            n_jobs=n_jobs,
         )
         for i, p in enumerate(cluster_pv):
             if p < thr:
@@ -146,7 +145,7 @@ if __name__ == "__main__":
             n_permutations=10000,
             threshold=3,
             tail=0,
-            n_jobs=8,
+            n_jobs=n_jobs,
             stat_fun=mne.stats.ttest_ind_no_p,
         )
         for i, p in enumerate(cluster_pv):
@@ -162,7 +161,7 @@ if __name__ == "__main__":
             threshold=3,
             stat_fun=mne.stats.ttest_ind_no_p,
             tail=0,
-            n_jobs=8,
+            n_jobs=n_jobs,
         )
         for i, p in enumerate(cluster_pv):
             if p < thr:
