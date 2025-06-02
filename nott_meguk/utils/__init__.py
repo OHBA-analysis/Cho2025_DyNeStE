@@ -5,3 +5,4 @@ from .array_ops import *
 from .data import *
 from .model import *
 from .plotting import *
+from .statistics import *
