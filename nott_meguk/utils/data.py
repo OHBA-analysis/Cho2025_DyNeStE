@@ -2,6 +2,7 @@
 
 import pickle
 import numpy as np
+import pandas as pd
 from osl_dynamics.inference import modes
 
 
@@ -124,3 +125,27 @@ def match_order(ref_info, cmp_info, method="covariances"):
         # alpha time courses are concatenated subject-wise
 
     return order
+
+
+def build_dataframe(*data, labels):
+    """Builds a pandas DataFrame from multiple data arrays and labels.
+
+    Parameters
+    ----------
+    data : list of arrays
+        Data arrays to be included in the DataFrame.
+        Each array can have different lengths.
+    labels : list of str
+        Labels for each data array.
+        The number of labels should match the number of data arrays.
+    
+    Returns
+    -------
+    df : pandas.DataFrame
+        DataFrame containing the data arrays with corresponding labels as columns.
+    """
+    dictionary = {}
+    for l, d in zip(labels, data):
+        dictionary.update({l: d})
+    df = pd.DataFrame(dictionary)
+    return df
