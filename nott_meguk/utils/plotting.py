@@ -831,6 +831,7 @@ def _plot_cycle(
     ordering,
     fo_density,
     edges,
+    nodesize=1000,
     fontsize=16,
 ):
     """Plot state network as circular diagram with arrows.
@@ -846,6 +847,8 @@ def _plot_cycle(
     edges : array_like
         Array of zeros and ones indicating whether the connection should be
         plotted.
+    nodesize : int, optional
+        Size of the cycle nodes in the plot. Defaults to 1000.
     fontsize : int, optional
         Font size for axes and tick labels. Defaults to 16.
     """
@@ -886,7 +889,7 @@ def _plot_cycle(
         plt.scatter(
             distance_to_plot_manual[i, 0],
             distance_to_plot_manual[i, 1],
-            s=1000,
+            s=nodesize,
             color=colormap[ordering[i]],
         )
         plt.text(
@@ -956,6 +959,7 @@ def plot_tinda_cycle(
     fo_density,
     state_sequence,
     edges,
+    nodesize=1000,
     fontsize=16,
     filename=None,
 ):
@@ -973,6 +977,8 @@ def plot_tinda_cycle(
     edges : np.ndarray
         Binary matrix indicating the presence of edges.
         Shape is (n_states, n_states).
+    nodesize : int, optional
+        Size of the cycle nodes in the plot. Defaults to 1000.
     fontsize : int, optional
         Font size for axes and tick labels. Defaults to 16.
     filename : str, optional
@@ -987,7 +993,13 @@ def plot_tinda_cycle(
     """
     # Plot TINDA cycle
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
-    _plot_cycle(state_sequence, fo_density, edges, fontsize=fontsize)
+    _plot_cycle(
+        state_sequence,
+        fo_density,
+        edges,
+        nodesize=nodesize,
+        fontsize=fontsize,
+    )
 
     # Save or return the figure
     plt.tight_layout()
@@ -1001,7 +1013,7 @@ def plot_cycle_strengths(
     df,
     palette,
     p_vals=None,
-    fontsize=14,
+    fontsize=15,
     filename=None,
 ):
     """Plots cycle strengths from the DyNeStE and HMM models.
@@ -1016,7 +1028,7 @@ def plot_cycle_strengths(
         List of p-values of statistical tests on each correspoding group 
         of cycle strengths. Defaults to None.
     fontsize : int, optional
-        Font size for axes and tick labels. Defaults to 14.
+        Font size for axes and tick labels. Defaults to 15.
     filename : str, optional
         Output filename.
 
@@ -1032,7 +1044,7 @@ def plot_cycle_strengths(
     hue_order = ["DyNeStE", "HMM"]
 
     # Plot boxplots 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5.5))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4, 4.5))
     bp = sns.boxplot(
         data=df, x="Data Type", y="Cycle Strengths",
         hue="Models", palette=palette, width=0.6, gap=0.1,
@@ -1061,11 +1073,12 @@ def plot_cycle_strengths(
     if p_vals is not None:
         for i, p in enumerate(p_vals):
             p_label = _categorize_pvalue(p)
-            ax.text(
-                i, ax.get_ylim()[1] * 0.98, p_label,
-                color="k", ha="center", va="bottom",
-                fontweight="bold", fontsize=fontsize,
-            )
+            if p_label != "n.s.":
+                ax.text(
+                    i, ax.get_ylim()[1] * 0.98, p_label,
+                    color="k", ha="center", va="bottom",
+                    fontweight="bold", fontsize=fontsize,
+                )
 
     # Adjust axis settings
     vmin, vmax = ax.get_ylim()
@@ -1073,9 +1086,175 @@ def plot_cycle_strengths(
     ax.set_ylim([vmin, vmax + gap])
     ax.set_xlabel("Data Type", fontsize=fontsize)
     ax.set_ylabel("Cycle Strength (a.u.)", fontsize=fontsize)
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
     ax.tick_params(axis="both", which="both", width=1.5, labelsize=fontsize)
-    ax.spines[["left", "bottom", "right", "top"]].set_linewidth(1.5)
+    ax.spines[["left", "bottom"]].set_linewidth(1.5)
+    ax.spines[["right", "top"]].set_visible(False)
     
+    # Save or return the figure
+    plt.tight_layout()
+    if filename is not None:
+        save(fig, filename, transparent=True)
+    else:
+        return fig, ax
+    
+
+def plot_quintile_cycle_strengths(
+    df,
+    palette,
+    p_vals=None,
+    fontsize=15,
+    filename=None,
+):
+    """Plots cycle strengths from the DyNeStE and HMM models for each quintile.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing the cycle strengths data.
+    palette : dict
+        Dictionary mapping hue variable values to colors.
+    p_vals : list of float
+        List of p-values of statistical tests on each correspoding group 
+        of cycle strengths. Defaults to None.
+    fontsize : int, optional
+        Font size for axes and tick labels. Defaults to 15.
+    filename : str, optional
+        Output filename.
+
+    Returns
+    -------
+    fig : plt.figure
+        Matplotlib figure object. Only returned if :code:`filename=None`.
+    ax : plt.axes
+        Matplotlib axis object. Only returned if :code:`filename=None`.
+    """
+    # Set group orders
+    n_quintiles = 5
+    order = [f"{i + 1}" for i in range(n_quintiles)]
+    hue_order = ["DyNeStE", "HMM"]
+
+    # Plot boxplots 
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 4.5))
+    bp = sns.boxplot(
+        data=df, x="Quintiles", y="Cycle Strengths",
+        hue="Models", palette=palette, width=0.6, gap=0.1,
+        order=order, hue_order=hue_order,
+        showmeans=True, meanprops={
+            "marker":"*", "markerfacecolor":"black", "markeredgecolor":"black"
+        },
+        fill=False, legend=False, zorder=2, ax=ax,
+    )
+
+    # Visualize manual strip plots
+    for i, container in enumerate(bp.containers):
+        for j, box in enumerate(container.boxes):
+            y = df[
+                (df["Quintiles"] == order[j]) & (df["Models"] == hue_order[i])
+            ]["Cycle Strengths"].values
+            x_data = box.get_xdata()
+            x_center = (min(x_data) + max(x_data)) / 2
+            x = np.random.normal(x_center, 0.02, size=len(y))
+            ax.scatter(
+                x, y, color=palette[hue_order[i]], edgecolor="none", 
+                marker="o", alpha=0.3, zorder=1,
+            )
+
+    # Add significance labels
+    if p_vals is not None:
+        for i, p in enumerate(p_vals):
+            p_label = _categorize_pvalue(p, bonferroni_n_tests=n_quintiles)
+            if p_label != "n.s.":
+                ax.text(
+                    i, ax.get_ylim()[1] * 0.98, p_label,
+                    color="k", ha="center", va="bottom",
+                    fontweight="bold", fontsize=fontsize,
+                )
+
+    # Adjust axis settings
+    vmin, vmax = ax.get_ylim()
+    gap = (vmax - vmin) * 0.05
+    ax.set_ylim([vmin, vmax + gap])
+    ax.set_xlabel("Quintiles", fontsize=fontsize)
+    ax.set_ylabel("Cycle Strength (a.u.)", fontsize=fontsize)
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    ax.tick_params(axis="both", which="both", width=1.5, labelsize=fontsize)
+    ax.spines[["left", "bottom"]].set_linewidth(1.5)
+    ax.spines[["right", "top"]].set_visible(False)
+    
+    # Save or return the figure
+    plt.tight_layout()
+    if filename is not None:
+        save(fig, filename, transparent=True)
+    else:
+        return fig, ax
+
+
+def plot_interval_durations(df, palette, fontsize=15, filename=None):
+    """Plots interval durations from the DyNeStE and HMM models.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing the interval durations data.
+    palette : dict
+        Dictionary mapping hue variable values to colors.
+    fontsize : int, optional
+        Font size for axes and tick labels. Defaults to 15.
+    filename : str, optional
+        Output filename.
+
+    Returns
+    -------
+    fig : plt.figure
+        Matplotlib figure object. Only returned if :code:`filename=None`.
+    ax : plt.axes
+        Matplotlib axis object. Only returned if :code:`filename=None`.
+    """
+    # Set group orders
+    n_quintiles = 5
+    order = [f"{i + 1}" for i in range(n_quintiles)]
+    hue_order = ["DyNeStE", "HMM"]
+
+    # Plot boxplots 
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(4, 6))
+    bp = sns.barplot(
+        data=df, x="Interval Durations", y="Quintiles",
+        hue="Models", palette=palette, width=0.6, gap=0.1,
+        order=order, hue_order=hue_order,
+        errorbar="se", capsize=0.2, err_kws={"linewidth": 1.5},
+        linewidth=1.5, legend=True, orient="h", zorder=2, ax=ax,
+    )
+
+    for i, line in enumerate(bp.get_lines()):
+        if i < n_quintiles:
+            line.set_color(palette["DyNeStE"])
+        else:
+            line.set_color(palette["HMM"])
+
+    # # Visualize manual strip plots
+    # for i, container in enumerate(bp.containers):
+    #     for j, patch in enumerate(container.patches):
+    #         x = df[
+    #             (df["Quintiles"] == order[j]) & (df["Models"] == hue_order[i])
+    #         ]["Interval Durations"].values
+    #         y_center = patch.get_y() + patch.get_height() / 2
+    #         y = np.random.normal(y_center, 0.02, size=len(x))
+    #         ax.scatter(
+    #             x, y, color=palette[hue_order[i]], edgecolor="none", 
+    #             marker="o", alpha=0.3, zorder=1,
+    #         )
+
+    # Adjust axis settings
+    hmin, hmax = ax.get_xlim()
+    gap = (hmax - hmin) * 0.05
+    ax.set_xlim([hmin, hmax + gap])
+    ax.set_xlabel("Interval Durations (s)", fontsize=fontsize)
+    ax.set_ylabel("Quintiles", fontsize=fontsize)
+    ax.tick_params(axis="both", which="both", width=1.5, labelsize=fontsize)
+    ax.spines[["left", "bottom"]].set_linewidth(1.5)
+    ax.spines[["right", "top"]].set_visible(False)
+
     # Save or return the figure
     plt.tight_layout()
     if filename is not None:

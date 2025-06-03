@@ -396,9 +396,68 @@ def run_tinda(state_time_courses):
         np.nanmean((fo_density[:, :, 0] - fo_density[:, :, 1]), axis=2)
     )
     asymmetry_matrix[np.isnan(asymmetry_matrix)] = 0
-    # dim: (n_states, n_states, n_subjects)
+    # shape: (n_states, n_states, n_subjects)
     
     return fo_density, tinda_stats, best_sequence, asymmetry_matrix
+
+
+def run_tinda_quintile(state_time_courses, interval_mode, interval_range):
+    """Runs the TINDA algorithm on state time courses.
+
+    Parameters
+    ----------
+    state_time_courses : list of np.ndarray
+        State time courses for each subject.
+        Shape is (n_subjects, n_samples, n_states).
+
+    Returns
+    -------
+    fo_density : np.ndarray
+        Fractional occupancies of the states in each interval bins
+        across subjects. Shape is (n_interval_states, n_density_states,
+        n_bins, n_interval_ranges, n_subjects).
+    tinda_stats : tuple of list of dict
+        Statistics from TINDA.
+        Shape is (n_subjects, n_states, n_features).
+    best_sequences : list of np.ndarray
+        List of the best circular sequences of states for each interval.
+    asymmetry_matrices : list of np.ndarray
+        List of asymmetry matrices for each interval, computed from the
+        fractional occupancies.
+        Shape is (n_interval_ranges, n_states, n_states, n_subjects).
+    """
+    # Validate inputs
+    n_qunitiles = 5  # by the definition of quintiles
+    if len(interval_range) - 1 != n_qunitiles:
+        raise ValueError("Interval range must have 6 values for quintile analysis.")
+
+    # Run TINDA
+    fo_density, _, tinda_stats = tinda.tinda(
+        state_time_courses,
+        interval_mode=interval_mode,
+        interval_range=interval_range,
+    )
+    # shape (fo_density): (n_interval_states, n_density_states, n_bins, 
+    #                      n_interval_ranges, n_subjects)
+
+    # Find the best circular sequences
+    best_sequences = []
+    for i in range(n_qunitiles):
+        best_sequences.append(tinda.optimise_sequence(fo_density[:, :, :, i:i+1]))
+    # shape: (n_interval_ranges, n_states)
+
+    # Compute the interval-wise asymmetry matrix
+    asymmetry_matrices = []
+    for i in range(n_qunitiles):
+        asymmetry_matrix = np.squeeze(
+            np.nanmean((fo_density[:, :, 0, i:i+1] - fo_density[:, :, 1, i:i+1]), axis=2)
+        )
+        asymmetry_matrix[np.isnan(asymmetry_matrix)] = 0
+        # shape: (n_states, n_states, n_subjects)
+        asymmetry_matrices.append(asymmetry_matrix)
+    # shape: (n_interval_ranges, n_states, n_states, n_subjects)
+    
+    return fo_density, tinda_stats, best_sequences, asymmetry_matrices
 
 
 def find_strongest_edges(
@@ -466,7 +525,7 @@ def find_strongest_edges(
         for i in range(n_states):
             for j in range(n_states):
                 if i != j:
-                    _, p_val = ttest_rel(group1[i, j, :], group2[i, j, :], nan_policy='omit')
+                    _, p_val = ttest_rel(group1[i, j, :], group2[i, j, :], nan_policy="omit")
                     if p_val < thr:
                         edges[i, j] = 1
 
@@ -519,3 +578,81 @@ def get_cycle_strengths(asymmetry_matrix, state_sequence):
         angleplot, asymmetry_matrix
     )  # shape: (n_subjects,)
     return cycle_strengths
+
+
+def compute_interval_durations(
+    tinda_stats,
+    interval_range,
+    sampling_frequency
+):
+    """Computes the subject-level interval durations for each quintile.
+
+    Parameters
+    ----------
+    tinda_stats : tuple of list of dict
+        Statistics from TINDA.
+        Shape is (n_subjects, n_states, n_features).
+    interval_range : list or np.ndarray
+        List of interval ranges for quintiles.
+        Should have 6 values for quintile analysis.
+    sampling_frequency : int
+        Sampling frequency of the data in Hz.
+
+    Returns
+    -------
+    mean_interval_durations : np.ndarray
+        Mean interval durations for each subject and quintile.
+        Shape is (n_subjects, n_quintiles).
+    """
+    # Get the data dimensions
+    n_subjects = len(tinda_stats)
+    n_states = len(tinda_stats[0])
+    n_quintiles = len(interval_range) - 1  # number of quintiles
+    
+    # Compute subject-level interval durations
+    interval_durations = []
+    for n in range(n_subjects):
+        durations_state_quintile = []  # interval durations for each state and quintile
+        for s in range(n_states):
+            # Get instances of interval durations (in seconds)
+            durations = tinda_stats[n][s]["durations"] / sampling_frequency
+            
+            # Compute percentiles
+            perc = np.unique(np.percentile(durations, interval_range))  # np.unique() sorts automatically
+
+            # Bin the durations based on percentiles
+            binned_indices = np.digitize(durations, perc, right=False)
+            # NOTE: The indices will range from 1 to len(percentiles)-1 corresponding to
+            #       the bins (0-20%), (20-40%), (40-60%), (60-80%), (80-100%).
+            binned_indices = np.clip(binned_indices, 1, len(perc) - 1)
+            # NOTE: This handles the edge case where minimum and maximum values might get off-indices.
+            #       This ensures that values equal to the min are in Bin #1, and values equal to the max
+            #       are in the last bin.
+            binned_indices -= 1  # for 0-based indexing
+
+            # Create a list of durations for each quintile
+            durations_quintile = []
+            for i in range(len(perc) - 1):
+                mask = (binned_indices == i)
+                durations_quintile.append(durations[mask])
+            # shape: (n_quintiles, n_durations)
+            
+            durations_state_quintile.append(durations_quintile)
+            # shape: (n_states, n_quintiles, n_durations)
+
+        interval_durations.append(durations_state_quintile)
+        # shape: (n_subjects, n_states, n_quintiles, n_durations)
+
+    # Average interval durations over duration instances and states
+    mean_interval_durations = np.zeros((n_subjects, n_states, n_quintiles))
+    for n in range(n_subjects):
+        for s in range(n_states):
+            for q in range(n_quintiles):
+                mean_interval_durations[n, s, q] = np.mean(
+                    interval_durations[n][s][q]
+                )  # average across duration instances
+                # shape: (n_subjects, n_states, n_quintiles)
+    mean_interval_durations = np.mean(mean_interval_durations, axis=1)  # average across states
+    # shape: (n_subjects, n_quintiles)
+
+    return mean_interval_durations
