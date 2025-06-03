@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from matplotlib.ticker import MaxNLocator, ScalarFormatter
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from osl_dynamics.analysis import power, connectivity
 from osl_dynamics.utils.plotting import plot_line, plot_matrices
 from osl_dynamics.utils.misc import override_dict_defaults
@@ -96,6 +97,36 @@ def _get_color_tools(name, n_colors):
             markers = ["o"] * 6 + ["d"] * 6
 
     return palette, linestyles, markers
+
+
+def _categorize_pvalue(p_val, bonferroni_n_tests=1):
+    """Assigns a label indicating statistical significance that corresponds 
+    to an input p-value.
+
+    Parameters
+    ----------
+    p_val : float
+        P-value from a statistical test.
+    bonferroni_n_tests : int, optional
+        Number of tests performed for Bonferroni correction. Defaults to 1.
+
+    Returns
+    -------
+    p_label : str
+        Label representing a statistical significance.
+    """ 
+
+    # Define thresholds and labels
+    thresholds = np.array([1e-3, 0.01, 0.05]) / bonferroni_n_tests
+    labels = ["***", "**", "*", "n.s."]
+
+    # Check if p-value is within the thresholds
+    arr_to_compare = np.concat((thresholds, [p_val]))
+    ordinal_idx = np.max(np.where(np.sort(arr_to_compare) == p_val)[0])
+    # NOTE: use maximum for the case in which a p-value and threshold are identical
+    p_label = labels[ordinal_idx]
+
+    return p_label
 
 
 def plot_alpha(
@@ -708,6 +739,347 @@ def plot_mutual_information(
     plt.tight_layout()
     if filename is not None:
         save(fig, filename)
+    else:
+        return fig, ax
+    
+
+def plot_asymmetry_matrix(
+    matrix,
+    state_sequence,
+    edge_idx=None,
+    vlims=None,
+    fontsize=16,
+    filename=None,
+):
+    """Plots an asymmetry matrix from the TINDA analysis.
+
+    Parameters
+    ----------
+    matrix : np.ndarray
+        Asymmetry matrix to plot. Shape must be (n_states, n_states) or
+        (n_states, n_states, n_subjects).
+    state_sequence : np.ndarray
+        Sequence of states to reorder the matrix. Shape must be (n_states,).
+    edge_idx : np.ndarray
+        Indices of the edges to mark. Shape is (n_edges, 2).
+    vlims : list, optional
+        List of two floats specifying the color limits for the matrix.
+        Defaults to None, in which case the limits are determined automatically.
+    fontsize : int, optional
+        Font size for axes and tick labels. Defaults to 16.
+    filename : str, optional
+        Output filename.
+
+    Returns
+    -------
+    fig : plt.figure
+        Matplotlib figure object. Only returned if :code:`filename=None`.
+    ax : plt.axes
+        Matplotlib axis object. Only returned if :code:`filename=None`.
+    """
+    # Vadlidate inputs
+    if matrix.ndim == 3:
+        matrix = np.nanmean(matrix, axis=2)  # average over subjects
+    elif matrix.ndim != 2:
+        raise ValueError("Input matrix must be a 2D or 3D array.")
+    
+    # Reorder matrix by state sequence
+    state_sequence = np.concatenate((
+        [state_sequence[0]], state_sequence[1:][::-1]
+    ))  # change from counter-clockwise to clockwise
+    matrix = matrix[np.ix_(state_sequence, state_sequence)]
+
+    # Plot asymmetry matrix
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+    if vlims is None:
+        img = ax.imshow(matrix, cmap="RdBu_r")
+    else:
+        img = ax.imshow(matrix, cmap="RdBu_r", vmin=vlims[0], vmax=vlims[1])
+
+    if edge_idx is not None:
+        for i, j in edge_idx:
+            ax.text(j, i, "*", ha="center", va="center",
+                    color="black", fontsize=fontsize, fontweight="bold")
+            
+    # Adjust axis settings
+    ax.set_xticks(np.arange(matrix.shape[0]))
+    ax.set_yticks(np.arange(matrix.shape[1]))
+    ax.set_xticklabels(np.array(state_sequence) + 1)
+    ax.set_yticklabels(np.array(state_sequence) + 1)
+    ax.set_xlabel("Reference State (n)", fontsize=fontsize)
+    ax.set_ylabel("Network State (m)", fontsize=fontsize)
+    ax.tick_params(labelsize=fontsize)
+
+    # Add a colorbar
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)
+    cbar = fig.colorbar(img, cax=cax)
+    cbar.ax.yaxis.set_major_formatter(ScalarFormatter())
+    cbar.ax.ticklabel_format(style="scientific", axis="y", scilimits=(-2, 6))
+    cbar.ax.tick_params(labelsize=fontsize)
+    cbar.ax.yaxis.offsetText.set_fontsize(fontsize)
+
+    # Save or return the figure
+    plt.tight_layout()
+    if filename is not None:
+        save(fig, filename, transparent=True)
+    else:
+        return fig, ax
+    
+
+def _plot_cycle(
+    ordering,
+    fo_density,
+    edges,
+    fontsize=16,
+):
+    """Plot state network as circular diagram with arrows.
+
+    Parameters
+    ----------
+    ordering : list
+        List of best sequence of states to plot (in order of counterclockwise
+        rotation).
+    fo_density : array_like
+        Time-in-state densities array of shape (n_interval_states,
+        n_density_states, 2, (n_interval_ranges,) n_sessions).
+    edges : array_like
+        Array of zeros and ones indicating whether the connection should be
+        plotted.
+    fontsize : int, optional
+        Font size for axes and tick labels. Defaults to 16.
+    """
+    # Set colormap
+    palette, _, _ = _get_color_tools("tol_bright", len(ordering))
+    colormap = palette.copy()
+    colormap = [matplotlib.colors.to_rgba(clr) for clr in colormap]
+    colormap = [clr[:3] + (0.8,) for clr in colormap]  # set alpha to 0.8
+
+    # Plot state network as circular diagram with arrows
+    plt.gca()
+
+    K = len(ordering)
+    if len(fo_density.shape) == 5:
+        fo_density = np.squeeze(
+            fo_density
+        )  # squeeze in case there is still a interval_ranges dimension
+
+    # Compute mean direction of arrows
+    mean_direction = np.squeeze(
+        (fo_density[:, :, 0, :] - fo_density[:, :, 1, :]).mean(axis=2)
+    )  # equivalent to asymmetry matrix
+
+    # Reorder the states to match the ordering
+    ordering = np.roll(ordering[::-1], 1)
+    # rotate ordering from clockwise to counter clockwise
+    edges = edges[ordering][:, ordering]
+    mean_direction = mean_direction[ordering][:, ordering]
+
+    # Get the locations on the unit circle
+    theta = np.arange(0, 2 * np.pi, 2 * np.pi / K)
+    x = np.roll(np.cos(theta), int(K / 4))  # start from 12 o'clock
+    y = np.roll(np.sin(theta), int(K - (K / 4)))
+    distance_to_plot_manual = np.stack([x, y]).T
+
+    # Plot the scatter points with state identities
+    for i in range(K):
+        plt.scatter(
+            distance_to_plot_manual[i, 0],
+            distance_to_plot_manual[i, 1],
+            s=1000,
+            color=colormap[ordering[i]],
+        )
+        plt.text(
+            distance_to_plot_manual[i, 0],
+            distance_to_plot_manual[i, 1],
+            str(ordering[i] + 1),
+            horizontalalignment="center",
+            verticalalignment="center",
+            fontsize=fontsize,
+            fontweight="bold",
+        )
+
+    # Plot the arrows
+    for ik1 in range(K):
+        for k2 in range(K):
+            if edges[ik1, k2]:
+                # arrow lengths have to be proportional to the distance
+                # between the states. Use Pythagoras.
+                line_scale = np.sqrt(
+                    np.sum(
+                        (
+                            distance_to_plot_manual[k2, :]
+                            - distance_to_plot_manual[ik1, :]
+                        )
+                        ** 2
+                    )
+                )
+                arrow_start = (
+                    distance_to_plot_manual[ik1, :]
+                    + 0.1
+                    * (distance_to_plot_manual[k2, :] - distance_to_plot_manual[ik1, :])
+                    / line_scale
+                )
+                arrow_end = (
+                    distance_to_plot_manual[k2, :]
+                    - 0.1
+                    * (distance_to_plot_manual[k2, :] - distance_to_plot_manual[ik1, :])
+                    / line_scale
+                )
+                if mean_direction[ik1, k2] > 0:  # arrow from k1 to k2
+                    plt.arrow(
+                        arrow_start[0],
+                        arrow_start[1],
+                        arrow_end[0] - arrow_start[0],
+                        arrow_end[1] - arrow_start[1],
+                        head_width=0.05,
+                        head_length=0.1,
+                        length_includes_head=True,
+                        color="k",
+                    )
+                elif mean_direction[ik1, k2] < 0:  # arrow from k2 to k1
+                    plt.arrow(
+                        arrow_end[0],
+                        arrow_end[1],
+                        arrow_start[0] - arrow_end[0],
+                        arrow_start[1] - arrow_end[1],
+                        head_width=0.05,
+                        head_length=0.1,
+                        length_includes_head=True,
+                        color="k",
+                    )
+    plt.axis("off")
+    plt.axis("equal")
+
+
+def plot_tinda_cycle(
+    fo_density,
+    state_sequence,
+    edges,
+    fontsize=16,
+    filename=None,
+):
+    """Plots a state cycle computed using the TINDA algorithm.
+       Wrapper for :func:`_plot_cycle`.
+
+    Parameters
+    ----------
+    fo_density : np.ndarray
+        Fractional occupancy density matrix.
+        Shape is (n_interval_states, n_density_states, n_bins,
+        n_interval_ranges, n_subjects).
+    state_sequence : np.ndarray
+        Sequence of states.
+    edges : np.ndarray
+        Binary matrix indicating the presence of edges.
+        Shape is (n_states, n_states).
+    fontsize : int, optional
+        Font size for axes and tick labels. Defaults to 16.
+    filename : str, optional
+        Output filename.
+
+    Returns
+    -------
+    fig : plt.figure
+        Matplotlib figure object. Only returned if :code:`filename=None`.
+    ax : plt.axes
+        Matplotlib axis object. Only returned if :code:`filename=None`.
+    """
+    # Plot TINDA cycle
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 6))
+    _plot_cycle(state_sequence, fo_density, edges, fontsize=fontsize)
+
+    # Save or return the figure
+    plt.tight_layout()
+    if filename is not None:
+        save(fig, filename, transparent=True)
+    else:
+        return fig, ax
+
+
+def plot_cycle_strengths(
+    df,
+    palette,
+    p_vals=None,
+    fontsize=14,
+    filename=None,
+):
+    """Plots cycle strengths from the DyNeStE and HMM models.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing the cycle strengths data.
+    palette : dict
+        Dictionary mapping hue variable values to colors.
+    p_vals : list of float
+        List of p-values of statistical tests on each correspoding group 
+        of cycle strengths. Defaults to None.
+    fontsize : int, optional
+        Font size for axes and tick labels. Defaults to 14.
+    filename : str, optional
+        Output filename.
+
+    Returns
+    -------
+    fig : plt.figure
+        Matplotlib figure object. Only returned if :code:`filename=None`.
+    ax : plt.axes
+        Matplotlib axis object. Only returned if :code:`filename=None`.
+    """
+    # Set group orders
+    order = ["Inferred", "Sampled"]
+    hue_order = ["DyNeStE", "HMM"]
+
+    # Plot boxplots 
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5, 5.5))
+    bp = sns.boxplot(
+        data=df, x="Data Type", y="Cycle Strengths",
+        hue="Models", palette=palette, width=0.6, gap=0.1,
+        order=order, hue_order=hue_order,
+        showmeans=True, meanprops={
+            "marker":"*", "markerfacecolor":"black", "markeredgecolor":"black"
+        },
+        fill=False, legend=False, zorder=2, ax=ax,
+    )
+
+    # Visualize manual strip plots
+    for i, container in enumerate(bp.containers):
+        for j, box in enumerate(container.boxes):
+            y = df[
+                (df["Data Type"] == order[j]) & (df["Models"] == hue_order[i])
+            ]["Cycle Strengths"].values
+            x_data = box.get_xdata()
+            x_center = (min(x_data) + max(x_data)) / 2
+            x = np.random.normal(x_center, 0.02, size=len(y))
+            ax.scatter(
+                x, y, color=palette[hue_order[i]], edgecolor="none", 
+                marker="o", alpha=0.3, zorder=1,
+            )
+
+    # Add significance labels
+    if p_vals is not None:
+        for i, p in enumerate(p_vals):
+            p_label = _categorize_pvalue(p)
+            ax.text(
+                i, ax.get_ylim()[1] * 0.98, p_label,
+                color="k", ha="center", va="bottom",
+                fontweight="bold", fontsize=fontsize,
+            )
+
+    # Adjust axis settings
+    vmin, vmax = ax.get_ylim()
+    gap = (vmax - vmin) * 0.05
+    ax.set_ylim([vmin, vmax + gap])
+    ax.set_xlabel("Data Type", fontsize=fontsize)
+    ax.set_ylabel("Cycle Strength (a.u.)", fontsize=fontsize)
+    ax.tick_params(axis="both", which="both", width=1.5, labelsize=fontsize)
+    ax.spines[["left", "bottom", "right", "top"]].set_linewidth(1.5)
+    
+    # Save or return the figure
+    plt.tight_layout()
+    if filename is not None:
+        save(fig, filename, transparent=True)
     else:
         return fig, ax
 

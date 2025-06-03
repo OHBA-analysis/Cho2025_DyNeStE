@@ -1,8 +1,10 @@
 """Functions for pos-hoc analysis."""
 
 import numpy as np
+from scipy.stats import ttest_rel
 from sklearn.metrics import mutual_info_score
 from tqdm import trange
+from osl_dynamics.analysis import tinda
 from osl_dynamics.inference import metrics, modes
 
 
@@ -354,3 +356,166 @@ def compute_transition_probability(state_time_course):
     transition_probs /= row_sums
 
     return transition_probs
+
+
+def run_tinda(state_time_courses):
+    """Runs the TINDA algorithm on state time courses.
+
+    Parameters
+    ----------
+    state_time_courses : list of np.ndarray
+        State time courses for each subject.
+        Shape is (n_subjects, n_samples, n_states).
+
+    Returns
+    -------
+    fo_density : np.ndarray
+        Fractional occupancies of the states in each interval bins
+        across subjects. Shape is (n_interval_states, n_density_states,
+        n_bins, n_interval_ranges, n_subjects).
+    tinda_stats : tuple of list of dict
+        Statistics from TINDA.
+        Shape is (n_subjects, n_states, n_features).
+    best_sequence : np.ndarray
+        Array of the best circular sequence of states.
+    asymmetry_matrix : np.ndarray
+        Asymmetry matrix computed from the fractional occupancies.
+        Shape is (n_states, n_states, n_subjects).
+    """
+    # Run TINDA
+    fo_density, _, tinda_stats = tinda.tinda(state_time_courses)
+    # shape (fo_density): (n_interval_states, n_density_states, n_bins, 
+    #                      n_interval_ranges, n_subjects)
+
+    # Find the best circular sequence
+    best_sequence = tinda.optimise_sequence(fo_density)
+    # shape: (n_states,)
+
+    # Compute the asymmetry matrix
+    asymmetry_matrix = np.squeeze(
+        np.nanmean((fo_density[:, :, 0] - fo_density[:, :, 1]), axis=2)
+    )
+    asymmetry_matrix[np.isnan(asymmetry_matrix)] = 0
+    # dim: (n_states, n_states, n_subjects)
+    
+    return fo_density, tinda_stats, best_sequence, asymmetry_matrix
+
+
+def find_strongest_edges(
+    fo_density,
+    asymmetry_matrix,
+    state_sequence=None,
+    method="statistics",
+):
+    """Finds the strongest edges in the asymmetry matrix based on
+       the specified method.
+
+    Parameters
+    ----------
+    fo_density : np.ndarray
+        Fractional occupancy density matrix.
+        Shape is (n_interval_states, n_density_states, n_bins,
+        n_interval_ranges, n_subjects).
+    asymmetry_matrix : np.ndarray
+        Asymmetry matrix computed from the fractional occupancies.
+        Shape is (n_states, n_states, n_subjects).
+    state_sequence : np.ndarray, optional
+        Sequence of states to consider for finding edges.
+        If provided, the asymmetry matrix will be reordered
+        according to this sequence.
+    method : str, optional
+        Method to use for finding edges. Can be either
+        "statistics" (default) or "percentile".
+
+    Returns
+    -------
+    edges : np.ndarray
+        Binary matrix indicating the presence of edges.
+        Shape is (n_states, n_states).
+    edge_idx : np.ndarray
+        Indices of the edges found. Shape is (n_edges, 2).
+    """
+    # Preprocess state sequence
+    if state_sequence is not None:
+        state_sequence = np.concatenate((
+            [state_sequence[0]], state_sequence[1:][::-1]
+        ))  # change from counter-clockwise to clockwise
+
+    # Find the strongest edges based on the specified method
+    if method == "statistics":
+        # Validate inputs
+        if fo_density.ndim != 5:
+            raise ValueError("fo_density matrix must have 5 dimensions.")
+
+        # Perform t-test on interval asymmetries
+        n = np.prod(asymmetry_matrix.shape[:2]) - asymmetry_matrix.shape[0]
+        thr = 0.05 / n  # Bonferroni-corrected threshold
+        print(f"Bonferroni correction (n={n}) with threshold: {thr:.4f}")
+
+        group1 = np.squeeze(fo_density[:, :, 0])
+        group2 = np.squeeze(fo_density[:, :, 1])
+        # shape: (n_states, n_states, n_subjects)
+
+        if state_sequence is not None:
+            group1 = group1[np.ix_(state_sequence, state_sequence, np.arange(group1.shape[2]))]
+            group2 = group2[np.ix_(state_sequence, state_sequence, np.arange(group2.shape[2]))]
+
+        n_states, _, _ = group1.shape
+        edges = np.zeros((n_states, n_states))
+
+        for i in range(n_states):
+            for j in range(n_states):
+                if i != j:
+                    _, p_val = ttest_rel(group1[i, j, :], group2[i, j, :], nan_policy='omit')
+                    if p_val < thr:
+                        edges[i, j] = 1
+
+        edge_idx = np.argwhere(edges == 1)
+
+    if method == "percentile":
+        # Validate inputs
+        if asymmetry_matrix.ndim == 3:
+            asymmetry_matrix = np.nanmean(asymmetry_matrix, axis=2)  # average across subjects
+        elif asymmetry_matrix.ndim != 2:
+            raise ValueError("asymmetry_matrix must have 2 or 3 dimensions.")
+        
+        # Reorder matrix by state sequence
+        if state_sequence is not None:
+            asymmetry_matrix = asymmetry_matrix[np.ix_(state_sequence, state_sequence)]
+
+        # Find indices of largest 25% values (excluding diagonal)
+        percentile = 0.25
+        n_edges = int((asymmetry_matrix.shape - asymmetry_matrix.shape[0]) * percentile)
+        edge_idx = np.abs(asymmetry_matrix).argsort(axis=None)[-n_edges:]
+
+        # Get edges by setting the largest indices to 1
+        edges = np.zeros(asymmetry_matrix.shape)
+        edges[np.unravel_index(edge_idx, asymmetry_matrix.shape)] = 1
+        edge_idx = np.stack(np.unravel_index(edge_idx, asymmetry_matrix.shape), axis=-1)
+        # convert to 2D indices
+
+    return edges, edge_idx
+
+
+def get_cycle_strengths(asymmetry_matrix, state_sequence):
+    """Calculates the cycle strengths for a given state sequence.
+
+    Parameters
+    ----------
+    asymmetry_matrix : np.ndarray
+        Asymmetry matrix computed from the fractional occupancies.
+        Shape is (n_states, n_states, n_subjects).
+    state_sequence : np.ndarray
+        Cyclic sequence of the states. Shape is (n_states,).
+
+    Returns
+    -------
+    cycle_strengths : np.ndarray
+        Cycle strengths for each subject. Shape is (n_subjects,).
+    """
+    # Compute cycle strengths
+    angleplot = tinda.circle_angles(state_sequence)  # shape: (n_states, n_states)
+    cycle_strengths = tinda.compute_cycle_strength(
+        angleplot, asymmetry_matrix
+    )  # shape: (n_subjects,)
+    return cycle_strengths
