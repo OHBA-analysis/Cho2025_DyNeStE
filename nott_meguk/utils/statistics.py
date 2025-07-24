@@ -2,7 +2,14 @@
 
 import warnings
 import numpy as np
+from pqdm.threads import pqdm
 from scipy import stats
+from scipy.spatial.distance import cosine
+
+from osl_dynamics.analysis import regression
+from osl_dynamics.inference import modes
+from utils.analysis import compute_sw_state_time_course
+from utils.array_ops import window_shuffle
 
 
 def _check_stat_assumption(samples1, samples2, ks_alpha=0.05, ev_alpha=0.05):
@@ -129,3 +136,163 @@ def stat_ind_two_samples(
     print(f"[Bonferroni Correction] Threshold: {alpha}, Significance: {sig_indicator}")
 
     return stat, pval, sig_indicator
+
+
+def split_half_permutation_test(
+    time_varying_covariances,
+    alpha_time_courses,
+    cosine_similarities,
+    window_length,
+    step_size,
+    shuffle_window_length,
+    n_perms=1000,
+    n_jobs=1,
+):
+    """Performs permutation tests for split-half reproducibility metrics.
+    
+    Here, we use cosine similarities between power maps for each state as the
+    metric of interest.
+
+    Parameters
+    ----------
+    time_varying_covariances : list of list of np.ndarray
+        List containing time-varying covariance matrices for each split.
+        Each element should have shape (n_subjects, n_windows, n_channels,
+        n_channels).
+    alpha_time_courses : list of list of np.ndarray
+        List containing alpha time courses for each split.
+        Each element should have shape (n_subjects, n_samples, n_states).
+    cosine_similarities : np.ndarray
+        Array containing cosine similarities between power maps for each state.
+        Shape should be (n_states,).
+    window_length : int
+        Length of the sliding window in samples.
+    step_size : int
+        Step size for the sliding window in samples.
+    shuffle_window_length : int
+        Length of the window used to shuffle the data.
+    n_perms : int, optional
+        Number of permutations to perform. Defaults to 1000.
+    n_jobs : int, optional
+        Number of parallel jobs to run.
+        Defaults to 1 (no parallelization).
+
+    Returns
+    -------
+    cd_pvals : list
+        List of p-values for cosine similarities.
+        Each element corresponds to a state.
+    cd_sig_indicator : list
+        List of significance indicators for cosine similarities.
+        Each element corresponds to a state and indicates significance level.
+    """
+    # Get time-varying covariancesfor each split
+    tv_covs_1 = time_varying_covariances[0]
+    tv_covs_2 = time_varying_covariances[1]
+
+    # Get number of subjects
+    n_subjects_1 = len(tv_covs_1)
+    n_subjects_2 = len(tv_covs_2)
+
+    # Get alpha time courses for each split
+    alphas_1 = alpha_time_courses[0]
+    alphas_2 = alpha_time_courses[1]
+
+    # Get the number of states
+    n_states = alphas_1[0].shape[1]
+
+    # Set arguments for sliding window computations
+    sw_kwargs = {
+        "window_length": window_length,
+        "step_size": step_size,
+        "shuffle_window_length": shuffle_window_length,
+        "n_jobs": 1,
+    }
+
+    # Perform split-half permutation test
+    def _get_metrics(n):
+        # Shuffle the alpha time courses in windows
+        rng_1 = np.random.default_rng(n)
+        rng_2 = np.random.default_rng(n + 1)
+
+        shuffled_alphas_1 = window_shuffle(
+            alphas_1, shuffle_window_length, rng=rng_1
+        )
+        shuffled_alphas_2 = window_shuffle(
+            alphas_2, shuffle_window_length, rng=rng_2
+        )
+
+        # Get shuffled state time courses
+        shuffled_stc_1 = modes.argmax_time_courses(shuffled_alphas_1)
+        shuffled_stc_2 = modes.argmax_time_courses(shuffled_alphas_2)
+
+        # Compute sliding window state time courses
+        sw_stcs_1 = compute_sw_state_time_course(shuffled_stc_1, **sw_kwargs)
+        sw_stcs_2 = compute_sw_state_time_course(shuffled_stc_2, **sw_kwargs)
+
+        # Regress time-varying covariances on state time courses
+        power_1, power_2 = [], []
+
+        for i in range(n_subjects_1):
+            pow_1 = regression.linear(
+                sw_stcs_1[i],
+                np.diagonal(tv_covs_1[i], axis1=1, axis2=2),
+                fit_intercept=False,
+            )
+            power_1.append(pow_1)
+        
+        for i in range(n_subjects_2):
+            pow_2 = regression.linear(
+                sw_stcs_2[i],
+                np.diagonal(tv_covs_2[i], axis1=1, axis2=2),
+                fit_intercept=False,
+            )
+            power_2.append(pow_2)
+
+        power_1 = np.mean(power_1, axis=0)  # average over subjects
+        power_2 = np.mean(power_2, axis=0)  # average over subjects
+        # shape: (n_states, n_channels)
+
+        # Demean power maps across states
+        power_1 -= np.mean(power_1, axis=0, keepdims=True)
+        power_2 -= np.mean(power_2, axis=0, keepdims=True)
+
+        # Compute cosine similarities between power maps
+        cs = []
+        for p1, p2 in zip(power_1, power_2):
+            cs.append(1 - cosine(p1, p2))
+
+        return cs
+
+    perm_args = [n for n in range(n_perms)]
+
+    results = pqdm(
+        perm_args,
+        _get_metrics,
+        n_jobs=n_jobs,
+        desc="Split-half Permutations",
+    )
+
+    # Build null distributions
+    null_cs = np.max(np.stack(results), axis=1)
+    # shape: (n_perms, n_states)
+
+    # Get thresholds for statistical significance
+    null_cs = null_cs.flatten()
+
+    sig_labels = np.array(["*", "**", "***"])
+    cs_thresholds = np.percentile(null_cs, [95, 99, 99.9])
+
+    # Get statistical significance
+    cs_pvals = []
+    cs_sig_indicator = []
+    for i in range(n_states):
+        cs_sig = cosine_similarities[i] > cs_thresholds
+        cs_pvals.append(np.mean(null_cs > cosine_similarities[i]))
+
+        if np.any(cs_sig):
+            cs_sig_indicator.append(sig_labels[cs_sig][-1])
+        else:
+            cs_sig_indicator.append("n.s.")
+
+    return cs_pvals, cs_sig_indicator

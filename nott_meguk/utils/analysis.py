@@ -4,7 +4,8 @@ import numpy as np
 from scipy.stats import ttest_rel
 from sklearn.metrics import mutual_info_score
 from tqdm import trange
-from osl_dynamics.analysis import tinda
+from osl_dynamics.analysis import power, connectivity, tinda
+from osl_dynamics.data import Data
 from osl_dynamics.inference import metrics, modes
 
 
@@ -127,6 +128,117 @@ def compute_statewise_riemannian_distance(cov_1, cov_2):
     riemannian_distances += (riemannian_distances.T - np.diag(diagonal_values))
     
     return riemannian_distances
+
+
+def compute_sw_state_time_course(
+    stc,
+    window_length,
+    step_size,
+    shuffle_window_length=None,
+    n_jobs=1,
+):
+    """Applies sliding window to state time courses.
+
+    Parameters
+    ----------
+    stc : list of np.ndarray
+        List of state time courses for each subject.
+        Shape is (n_subjects, n_samples, n_states).
+    window_length : int
+        Length of the sliding window in samples.
+    step_size : int
+        Step size for the sliding window in samples.
+    shuffle_window_length : int, optional
+        Length of the window used to shuffle the data.
+    n_jobs : int, optional
+        Number of parallel jobs to run.
+        Defaults to 1 (no parallelization).
+
+    Returns
+    -------
+    sw_stc : list of np.ndarray
+        List of sliding-window state time courses for each subject.
+        Each array has shape (n_windows, n_states).
+    """
+    # Trim the data if necessary
+    if shuffle_window_length is not None:
+        for i, tc in enumerate(stc):
+            n_samples = tc.shape[0]
+            n_windows = n_samples // shuffle_window_length
+            stc[i] = tc[:n_windows * shuffle_window_length]
+
+    # Compute sliding window state time courses
+    sw_stc = power.sliding_window_power(
+        stc,
+        window_length=window_length,
+        step_size=step_size,
+        power_type="mean",
+        n_jobs=n_jobs,
+    )
+
+    return sw_stc
+
+
+def compute_tv_covariances(
+    data,
+    sampling_frequency,
+    window_length,
+    step_size,
+    shuffle_window_length=None,
+    n_jobs=1,
+):
+    """Calculates time-varying covariance matrices.
+
+    Parameters
+    ----------
+    data : list of np.ndarray
+        List of time series data for each subject.
+        Shape is (n_subjects, n_samples, n_channels).
+    sampling_frequency : int
+        Sampling frequency of the data in Hz.
+    window_length : int
+        Length of the sliding window in samples.
+    step_size : int
+        Step size for the sliding window in samples.
+    shuffle_window_length : int, optional
+        Length of the window used to shuffle the data.
+    n_jobs : int, optional
+        Number of parallel jobs to run.
+        Defaults to 1 (no parallelization).
+
+    Returns
+    -------
+    tv_cov : list of np.ndarray
+        List of time-varying covariance matrices for each subject.
+        Each matrix has shape (n_windows, n_channels, n_channels).
+    """
+    # Prepare the data
+    dataset = Data(data, sampling_frequency=sampling_frequency)
+    dataset.prepare({
+        "filter": {"low_freq": 1.5, "high_freq": 40, "use_raw": True},
+        "amplitude_envelope": {},
+        "moving_average": {"n_window": 25},
+        "standardize": {},
+    })
+    time_series = dataset.time_series()
+
+    # Trim the data if necessary
+    if shuffle_window_length is not None:
+        for i in range(dataset.n_sessions):
+            n_samples = time_series[i].shape[0]
+            n_windows = n_samples // shuffle_window_length
+            time_series[i] = time_series[i][:n_windows * shuffle_window_length]
+
+    # Compute time-varying covariances
+    tv_cov = connectivity.sliding_window_connectivity(
+        time_series,
+        window_length=window_length,
+        step_size=step_size,
+        conn_type="cov",
+        n_jobs=n_jobs,
+    )
+
+    return tv_cov
 
 
 def compute_dice_coefficients(stc_1, stc_2):

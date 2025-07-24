@@ -3,8 +3,11 @@
 # Import packages
 import os
 import numpy as np
-from osl_dynamics.inference import modes, metrics
+from scipy.spatial.distance import cosine
+from osl_dynamics.analysis import power
+from utils.analysis import compute_tv_covariances
 from utils.data import load, match_order
+from utils.statistics import split_half_permutation_test
 
 
 if __name__ == "__main__":
@@ -42,6 +45,16 @@ if __name__ == "__main__":
     alphas_2 = inf_params_2["alpha"]
     covs_2 = inf_params_2["covariance"]
 
+    # Get state-specific power spectra
+    psd_data_1 = load(os.path.join(split1_dir, "inference/psds.pkl"))
+    freqs = psd_data_1["freqs"]
+    psds_1 = psd_data_1["psds"]
+    weights_1 = psd_data_1["weights"]
+    
+    psd_data_2 = load(os.path.join(split2_dir, "inference/psds.pkl"))
+    psds_2 = psd_data_2["psds"]
+    weights_2 = psd_data_2["weights"]
+
     # Get state orders for the specified model run
     ref_run = ("full", "dyneste", best_dyneste_run)
     
@@ -70,27 +83,84 @@ if __name__ == "__main__":
         alphas_2 = [a[:, order_2] for a in alphas_2]
         covs_2 = covs_2[order_2]
 
-    # Get state time courses
-    stc_1 = modes.argmax_time_courses(alphas_1)
-    stc_2 = modes.argmax_time_courses(alphas_2)
+    # Load training data time series
+    ts_1 = load(os.path.join(BASE_DIR, "data/split1/trimmed_ts.pkl"))
+    ts_2 = load(os.path.join(BASE_DIR, "data/split2/trimmed_ts.pkl"))
+    # shape: (n_subjects, n_samples, n_channels)
 
-    # -------------- [4] Split-half Comparisons -------------- #
+    # Validate time course lengths and shapes
+    if len(alphas_1) != len(ts_1) or len(alphas_2) != len(ts_2):
+        raise ValueError(
+            "The number of subjects between alpha time courses " +
+            "and data time series should be matched."
+        )
+
+    assert all(
+        alphas_1[i].shape[0] == ts_1[i].shape[0] for i in range(len(alphas_1))
+    ), "Inconsistent data shapes between alpha time courses and time series."
+    assert all(
+        alphas_2[i].shape[0] == ts_2[i].shape[0] for i in range(len(alphas_2))
+    ), "Inconsistent data shapes between alpha time courses and time series."
+
+    # -------------- [3] Split-half Comparisons -------------- #
     print("Step 3: Comparing split-halves ...")
 
-    # Compute Riemannian distances between covariance matrices
-    riemannian_distances = []
-    for c1, c2 in zip(covs_1, covs_2):
-        riemannian_distances.append(
-            metrics.pairwise_riemannian_distances(np.array([c1, c2]))[0, 1]
-        )
-    print(f"Riemannian distances: {riemannian_distances}")
+    # Compute state-specific power maps
+    power_maps_1 = power.variance_from_spectra(
+        freqs,
+        psds_1,
+        frequency_range=[1.5, 20],
+    )
+    power_maps_2 = power.variance_from_spectra(
+        freqs,
+        psds_2,
+        frequency_range=[1.5, 20],
+    )
 
-    # Compute RV coefficients between covariance matrices
-    rv_coefficients = []
-    for c1, c2 in zip(covs_1, covs_2):
-        rv_coefficients.append(
-            metrics.pairwise_rv_coefficient(np.array([c1, c2]))[0, 1]
-        )
-    print(f"RV coefficients: {rv_coefficients}")
+    # Average power maps across subjects
+    power_maps_1 = np.average(power_maps_1, weights=weights_1, axis=0)
+    power_maps_2 = np.average(power_maps_2, weights=weights_2, axis=0)
+    # shape: (n_states, n_channels)
+
+    # Subtract average across states
+    power_maps_1 -= np.mean(power_maps_1, axis=0, keepdims=True)
+    power_maps_2 -= np.mean(power_maps_2, axis=0, keepdims=True)
+
+    # Compute cosine similarities between power maps
+    cosine_similarities = []
+    for p1, p2 in zip(power_maps_1, power_maps_2):
+        cosine_similarities.append(1 - cosine(p1, p2))
+    cosine_similaritys = np.array(cosine_similarities)
+    print(f"Cosine similarities: {cosine_similarities}")
+
+    # -------------- [4] Non-parametric Permutation Tests -------------- #
+    print("Step 4: Running permutation tests ...")
+
+    # Compute time-varying covarainces
+    kwargs = {
+        "window_length": 50,
+        "step_size": 5,
+        "shuffle_window_length": 250,
+        "n_jobs": 16,
+    }
+
+    tv_covs_1 = compute_tv_covariances(
+        ts_1, sampling_frequency=250, **kwargs
+    )
+    tv_covs_2 = compute_tv_covariances(
+        ts_2, sampling_frequency=250, **kwargs
+    )
+
+    # Perform split-half permutation test
+    cs_pvals, cs_sig = split_half_permutation_test(
+        [tv_covs_1, tv_covs_2],
+        [alphas_1, alphas_2],
+        cosine_similarities=cosine_similarities,
+        n_perms=1000,
+        **kwargs,
+    )
+
+    print(f"Cosine similarity p-values: {cs_pvals}")
+    print(f"Cosine similarity significance: {cs_sig}")
 
     print("Analysis complete.")
