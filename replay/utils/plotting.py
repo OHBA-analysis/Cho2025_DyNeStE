@@ -732,6 +732,171 @@ def plot_fano_factors(
         return fig, ax
 
 
+def plot_fano_factor_effect_size(
+    fano_factors,
+    window_lengths,
+    sampling_frequency,
+    sig_indices=None,
+    ylims=None,
+    fontsize=14,
+    filename=None,
+):
+    """Plots the effect size (i.e., mean group difference) of Fano factors.
+
+    Here, we compute the difference between two models, and subjects make
+    each group.
+
+    Parameters
+    ----------
+    fano_factors : list of np.ndarray
+        Fano factors for the state time courses. Shape of each array
+        must be (n_sessions, n_windows, n_states).
+    window_lengths : np.ndarray
+        Array of window lengths used for Fano factor calculation.
+        Shape must be (n_windows,).
+    sampling_frequency : int
+        Sampling frequency.
+    sig_indices : list or np.ndarray, optional
+        Indices for significant Fano factors. If provided, the
+        corresponding window lengths will be highlighted. Defaults to None.
+    ylims : list, optional
+        List of two floats specifying the y-axis limits.
+        Defaults to None.
+    fontsize : int, optional
+        Font size for axes and tick labels. Defaults to 14.
+    filename : str, optional
+        Output filename. Defaults to None.
+
+    Returns
+    -------
+    fig : plt.figure
+        Matplotlib figure object. Only returned if :code:`filename=None`.
+    ax : plt.axes
+        Matplotlib axis object. Only returned if :code:`filename=None`.
+    """
+    # Validation
+    if len(fano_factors) != 2:
+        raise ValueError("Two Fano factors should be passed for comparison.")
+
+    for fano in fano_factors:
+        if fano.ndim != 3:
+            raise ValueError("Fano factors should be a 3-D array.")
+        if fano.shape[1] != len(window_lengths):
+            raise ValueError(
+                "Fano factors should have the same number of windows as window_lengths."
+            )
+
+    # Unpack Fano factors        
+    fano_1 = fano_factors[0]
+    fano_2 = fano_factors[1]
+    n1 = fano_1.shape[0]
+    n2 = fano_2.shape[0]
+
+    # Get the number of states
+    n_states = fano_1.shape[2]
+
+    # Get the group mean Fano factors over sessions
+    group_mean_fano1 = np.mean(fano_1, axis=0)  # shape: (n_windows, n_states)
+    group_mean_fano2 = np.mean(fano_2, axis=0)  # shape: (n_windows, n_states)
+    group_mean_diff = group_mean_fano1 - group_mean_fano2
+
+    # Get the varaince over sessions
+    var_fano1 = np.var(fano_1, axis=0, ddof=1)  # shape: (n_windows, n_states)
+    var_fano2 = np.var(fano_2, axis=0, ddof=1)  # shape: (n_windows, n_states)
+    
+    # Calculate the standard error of the mean group difference
+    sem_diff = np.sqrt(var_fano1 / n1 + var_fano2 / n2)
+    # shape: (n_windows, n_states)
+
+    if ylims is None:
+        min_fano = np.min(group_mean_diff - sem_diff),
+        max_fano = np.max(group_mean_diff + sem_diff)
+        gap = (max_fano - min_fano) * 0.1
+        ylims = [min_fano - gap, max_fano + gap]
+
+    # Set colormap
+    palette, color_ls, _ = _get_color_tools("tol_bright", n_states)
+    
+    # Visualize Fano factors
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(18, 6))
+    ax.set_xscale("log")  # use log scale
+
+    # Get x-axis values
+    x_windows = (window_lengths / sampling_frequency) * 1000  # samples to milliseconds
+    n_windows = len(x_windows)
+    
+    # Jitter x-axis values to avoid overlap
+    jitter_strength = 0.11
+    jitter_offset = 0.05
+    jitter = np.linspace(
+        -jitter_strength, jitter_strength, n_states
+    ).reshape(1, -1)
+    x_jittered = 10 ** (
+        np.log10(x_windows).reshape(-1, 1) + jitter + jitter_offset
+    )  # shape: (n_windows, n_states)
+
+    # Downsample for better visibility if necessary
+    if n_windows > 20:
+        tick_indices = np.arange(0, n_windows, 5)[1:]
+        x_jittered = x_jittered[tick_indices, :]
+        group_mean_diff = group_mean_diff[tick_indices, :]
+        sem_diff = sem_diff[tick_indices, :]
+
+    for i in range(n_states):
+        ax.errorbar(
+            x_jittered[:, i],
+            group_mean_diff[:, i],
+            yerr=None,
+            fmt="o",
+            color=palette[i],
+            linestyle="none",
+            capsize=0,
+        )
+        # Manually draw error bars with linestyles
+        for x, y, err in zip(
+            x_jittered[:, i],
+            group_mean_diff[:, i],
+            sem_diff[:, i],
+        ):
+            ax.plot(
+                [x, x], [y - err, y + err],
+                color=palette[i], linestyle=color_ls[i],
+                linewidth=1.5,
+            )
+
+    if sig_indices is not None:
+        y_lower = np.ones(len(x_windows)) * ylims[0]
+        y_upper = np.ones(len(x_windows)) * ylims[1]
+        ax.fill_between(
+            x_windows[sig_indices],
+            y_lower[sig_indices],
+            y_upper[sig_indices],
+            color="tab:red",
+            edgecolor="none",
+            alpha=0.1,
+        )
+    
+    # Adjust axis settings
+    ax.set_xlabel("Window Length (ms)", fontsize=fontsize)
+    ax.set_ylabel("Mean Group Difference (a.u.)", fontsize=fontsize)
+    ax.set_title("Effect Size of Difference in Fano Factors", fontsize=(fontsize + 1))
+    ax.set_ylim(ylims)
+    ax.tick_params(axis="both", which="major", width=1.5, labelsize=fontsize)
+    ax.minorticks_off()
+    ax.spines[["left", "bottom", "right", "top"]].set_linewidth(1.5)
+
+    # Adjust tick settings
+    ax.set_xticks(x_windows[tick_indices])
+    ax.set_xticklabels([f"{x:.0f}" for x in x_windows[tick_indices]])
+    
+    # Save to file if a filename has been passed
+    plt.tight_layout()
+    if filename is not None:
+        save(fig, filename)
+    else:
+        return fig, ax
+
+
 class DynamicVisualizer():
     """Class for visualizing dynamic network features.
     

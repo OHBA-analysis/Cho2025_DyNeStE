@@ -170,4 +170,15 @@ if __name__ == "__main__":
         ),
     )
 
+    up.plot_fano_factor_effect_size(
+        [dyneste_fano, hmm_fano],
+        window_lengths=window_lengths,
+        sampling_frequency=Fs,
+        sig_indices=sig_clu_idx,
+        ylims=None,
+        filename=os.path.join(
+            FIG_DIR, f"fano_factor_effect_{data_type}.png"
+        ),
+    )
+
     print("Visualization complete.")
