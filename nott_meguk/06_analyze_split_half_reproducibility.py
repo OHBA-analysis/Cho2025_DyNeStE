@@ -21,7 +21,7 @@ if __name__ == "__main__":
     best_dyneste_run = 2  # best run ID for DyNeStE model (trained on full data)
 
     print(f"[INFO] Model Type: {model_type} | Run ID (1st): run{run_id_1}" +
-          f" | Run ID (2nd): {run_id_2}")
+          f" | Run ID (2nd): run{run_id_2}")
 
     # Validate user inputs
     if model_type not in ["dyneste", "hmm"]:
