@@ -152,7 +152,7 @@ if __name__ == "__main__":
             if p < thr:
                 inf_sig_clu_idx[clusters[i][0]] += 1
 
-        # Test for sampled mutual information of DyNeStE and HMM
+        # Test for generated mutual information of DyNeStE and HMM
         dyneste_sam_mi_n = dyneste_sam_mi[:, :, n]
         hmm_sam_mi_n = hmm_sam_mi[:, :, n]
         f_obs, clusters, cluster_pv, H0 = mne.stats.permutation_cluster_test(
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     inf_sig_clu_idx = np.where(np.array(inf_sig_clu_idx) == n_states)[0]
     sam_sig_clu_idx = np.where(np.array(sam_sig_clu_idx) == n_states)[0]
     print(f"Significant cluster indices for inferred mutual information: {inf_sig_clu_idx}")
-    print(f"Significant cluster indices for sampled mutual information: {sam_sig_clu_idx}")
+    print(f"Significant cluster indices for generated mutual information: {sam_sig_clu_idx}")
 
     # Plot the mutual information
     up.plot_mutual_information(

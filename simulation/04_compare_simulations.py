@@ -220,7 +220,7 @@ if __name__ == "__main__":
     df = pd.DataFrame({
         "Jensen-Shannon Distance": jsd,
         "Model": np.tile(np.repeat(["DyNeStE", "HMM"], n_runs * n_states), 2),
-        "Type": np.repeat(["Inferred", "Sampled"], n_runs * n_states * 2),
+        "Type": np.repeat(["Inferred", "Generated"], n_runs * n_states * 2),
     })
 
     up.plot_violin(

@@ -464,12 +464,12 @@ def plot_fano_factors(
     fontsize=14,
     filename=None,
 ):
-    """Plots Fano factors for inferred and sampled state time courses.
+    """Plots Fano factors for inferred and generated state time courses.
 
     Parameters
     ----------
     fano_factors : list of np.ndarray
-        List of Fano factors for inferred and sampled state time courses.
+        List of Fano factors for inferred and generated state time courses.
         Each element should be a 2-D or 3-D array. Shape must be either 
         (n_windows, n_states) or (n_subjects, n_windows, n_states).
     window_lengths : np.ndarray
@@ -478,7 +478,7 @@ def plot_fano_factors(
     sampling_frequency : int
         Sampling frequency.
     sig_indices : list of lists, optional
-        List of indices for significant Fano factors for inferred and sampled 
+        List of indices for significant Fano factors for inferred and generated 
         state time courses. If provided, the corresponding Fano factors will be
         highlighted. Defaults to None.
     ylims : list, optional
@@ -512,7 +512,7 @@ def plot_fano_factors(
     if sig_indices is not None:
         if len(sig_indices) != 2:
             raise ValueError(
-                "there should be sig_indices for both inferred and sampled data."
+                "there should be sig_indices for both inferred and generated data."
             )
     
     # Get user inputs
@@ -586,7 +586,7 @@ def plot_fano_factors(
         ax[a].set_ylim(ylims[a])
     ax[0].set_ylabel("Fano Factor", fontsize=fontsize)
     ax[0].set_title("Inferred", fontsize=fontsize)
-    ax[1].set_title("Sampled", fontsize=fontsize)
+    ax[1].set_title("Generated", fontsize=fontsize)
     plt.tight_layout()
     if filename is not None:
         save(fig, filename)
@@ -609,7 +609,7 @@ def plot_mutual_information(
     Parameters
     ----------
     mutual_information : list of np.ndarray
-        List of mutual information arrays for inferred and sampled state time
+        List of mutual information arrays for inferred and generated state time
         courses. Shape of each array must be either (n_lags, n_states) or
         (n_subjects, n_lags, n_states).
     lags : list or np.ndarray
@@ -618,7 +618,7 @@ def plot_mutual_information(
     sampling_frequency : int
         Sampling frequency.
     sig_indices : list of lists, optional
-        List of indices for significant Fano factors for inferred and sampled 
+        List of indices for significant Fano factors for inferred and generated 
         state time courses. If provided, the corresponding Fano factors will be
         highlighted. Defaults to None.
     xticks : np.ndarray, optional
@@ -654,7 +654,7 @@ def plot_mutual_information(
     if sig_indices is not None:
         if len(sig_indices) != 2:
             raise ValueError(
-                "there should be sig_indices for both inferred and sampled data."
+                "there should be sig_indices for both inferred and generated data."
             )
     
     # Get user inputs
@@ -735,7 +735,7 @@ def plot_mutual_information(
         ax[a].set_ylim(ylims[a])
     ax[0].set_ylabel("Average Mutual Information (normalized)", fontsize=fontsize)
     ax[0].set_title("Inferred", fontsize=fontsize)
-    ax[1].set_title("Sampled", fontsize=fontsize)
+    ax[1].set_title("Generated", fontsize=fontsize)
     plt.tight_layout()
     if filename is not None:
         save(fig, filename)
@@ -1040,7 +1040,7 @@ def plot_cycle_strengths(
         Matplotlib axis object. Only returned if :code:`filename=None`.
     """
     # Set group orders
-    order = ["Inferred", "Sampled"]
+    order = ["Inferred", "Generated"]
     hue_order = ["DyNeStE", "HMM"]
 
     # Plot boxplots 

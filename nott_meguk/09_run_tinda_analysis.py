@@ -37,7 +37,7 @@ if __name__ == "__main__":
     dyneste_inf_params = ud.load(os.path.join(dyneste_dir, "inference/inf_params.pkl"))
     hmm_inf_params = ud.load(os.path.join(hmm_dir, "inference/inf_params.pkl"))
 
-    # Get inferred and sampled state time courses
+    # Get inferred and generated state time courses
     dyneste_inf_stc = modes.argmax_time_courses(
         dyneste_inf_params["alpha"]
     )
@@ -300,13 +300,13 @@ if __name__ == "__main__":
             dyneste_inf_cycle_strengths, "DyNeStE", "Inferred", labels=data_labels
         ),
         ud.build_dataframe(
-            dyneste_sam_cycle_strengths, "DyNeStE", "Sampled", labels=data_labels
+            dyneste_sam_cycle_strengths, "DyNeStE", "Generated", labels=data_labels
         ),
         ud.build_dataframe(
             hmm_inf_cycle_strengths, "HMM", "Inferred", labels=data_labels
         ),
         ud.build_dataframe(
-            hmm_sam_cycle_strengths, "HMM", "Sampled", labels=data_labels
+            hmm_sam_cycle_strengths, "HMM", "Generated", labels=data_labels
         ),
     ], ignore_index=True)
 
