@@ -271,11 +271,11 @@ def split_half_permutation_test(
         _get_metrics,
         n_jobs=n_jobs,
         desc="Split-half Permutations",
-    )
+    )  # shape: (n_perms, n_states)
 
     # Build null distributions
     null_cs = np.max(np.stack(results), axis=1)
-    # shape: (n_perms, n_states)
+    # shape: (n_perms,)
 
     # Get thresholds for statistical significance
     null_cs = null_cs.flatten()
