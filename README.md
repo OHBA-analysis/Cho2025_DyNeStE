@@ -19,7 +19,7 @@ For detailed descriptions of the scripts in each directory, please consult the R
 **NOTE:** All the codes within this repository were executed on the Oxford Biomedical Research Computing (BMRC) servers. While individual threads were allocated varying CPUs and GPUs, general information about the BRMC resources can be found at [_Using the BMRC Cluster with Slurm_](https://www.medsci.ox.ac.uk/for-staff/resources/bmrc/using-the-bmrc-cluster-with-slurm) and [_GPU Resources_](https://www.medsci.ox.ac.uk/for-staff/resources/bmrc/gpu-resources).
 
 ## 🎯 Requirements
-To start, you first need to install the [`osl-dynamics`](https://github.com/OHBA-analysis/osl-dynamics) software package and set up its environment byfollowing the installation guide [here](https://osl.readthedocs.io/en/latest/install.html). The scripts for this paper had following dependencies:
+To start, you first need to install the [`osl-dynamics`](https://github.com/OHBA-analysis/osl-dynamics) software package and set up its environment by following the installation guide [here](https://osl.readthedocs.io/en/latest/install.html). The scripts for this paper had following dependencies:
 
 ```
 python==3.12.9
