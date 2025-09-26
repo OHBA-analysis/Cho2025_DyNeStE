@@ -107,7 +107,7 @@ if __name__ == "__main__":
     up.save(fig, os.path.join(FIG_DIR, "covariance_matrices.png"))
 
     # Plot state lifetime distributions
-    print("(Step 2-3) Plotting covariance matrices ...")
+    print("(Step 2-3) Plotting state lifetime distributions ...")
 
     stcs = [sim_stc, dyneste_inf_stc, hmm_inf_stc, dyneste_sam_stc, hmm_sam_stc]
     stc_names = ["sim", "dyneste_inf", "hmm_inf", "dyneste_sam", "hmm_sam"]
