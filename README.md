@@ -1,6 +1,8 @@
 # Cho2025_DyNeStE
 
-This repository contains the scripts and data for reproducing results in the "*Discrete Representation of Long-Range Brain Network Dynamics via Generative Modelling*" paper.
+This repository contains the scripts and data for reproducing results in the "*Modelling Discrete States and Long-Term Dynamics in Functional Brain Networks*" paper.
+
+🔗 Modelling Discrete States and Long-Term Dynamics in Functional Brain Networks (Preprint DOI: [10.1101/2025.09.25.678554](https://doi.org/10.1101/2025.09.25.678554))
 
 💡 Please email SungJun Cho at sungjun.cho@ndcn.ox.ac.uk or simply raise GitHub Issues if you have any questions or concerns.
 
