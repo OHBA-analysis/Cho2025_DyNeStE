@@ -3,7 +3,6 @@
 # Import packages
 import os
 import numpy as np
-import seaborn as sns
 
 from sys import argv
 from tqdm import trange
