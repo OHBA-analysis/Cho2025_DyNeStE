@@ -62,6 +62,14 @@ if __name__ == "__main__":
         print(f"\tBest run: run{best_runs[i]}")
         print(f"\tBest free energy: {best_fes[i]}")
 
+        # Save final losses
+        save_path = os.path.join(
+            BASE_DIR,
+            f"results/{data_type}/{model_type}",
+            f"final_loss_{start}-{end}.npy",
+        )
+        np.save(save_path, loss)
+
     # Identify the optimal run from all the best runs
     opt_fe = np.min(best_fes)
     opt_run = best_runs[np.argmin(best_fes)]
