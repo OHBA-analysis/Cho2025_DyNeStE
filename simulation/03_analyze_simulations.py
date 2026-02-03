@@ -4,7 +4,7 @@
 import os
 import numpy as np
 from scipy.stats import ks_2samp
-from osl_dynamics.analysis import modes
+from osl_dynamics.analysis import post_hoc
 from utils import validate_nd_arrays
 from utils import data as ud
 from utils import plotting as up
@@ -51,6 +51,13 @@ if __name__ == "__main__":
     hmm_sim_stc = hmm_inf_params["sim_stc"]
     hmm_inf_stc = hmm_inf_params["inf_stc"]
     hmm_sam_stc = hmm_inf_params["sam_stc"]
+
+    # Match number of samples
+    n_samples = dyneste_sam_stc.shape[0]
+    dyneste_sim_stc = dyneste_sim_stc[:n_samples]
+    dyneste_inf_stc = dyneste_inf_stc[:n_samples]
+    hmm_sim_stc = hmm_sim_stc[:n_samples]
+    hmm_inf_stc = hmm_inf_stc[:n_samples]
     # *_stc.shape = (n_samples, n_states)
 
     # Get dice coefficients
@@ -69,8 +76,8 @@ if __name__ == "__main__":
     # Validate simulation data
     validate_nd_arrays(dyneste_sim_stc, hmm_sim_stc)
     validate_nd_arrays(dyneste_sim_cov, hmm_sim_cov)
-    sim_stc = dyneste_inf_params["sim_stc"]
-    sim_cov = dyneste_inf_params["sim_cov"]
+    sim_stc = dyneste_sim_stc
+    sim_cov = dyneste_sim_cov
     n_states = sim_stc.shape[-1]
 
     # Plot state time courses
@@ -129,10 +136,10 @@ if __name__ == "__main__":
     alpha_thr = 0.05 / bonferroni_n_tests
     print(f"\tBonferroni-corrected alpha threshold: {alpha_thr:.4e}")
 
-    sim_lt = modes.lifetimes(sim_stc)
+    sim_lt = post_hoc.lifetimes(sim_stc)
     for name, stc in zip(stc_names[1:], stcs[1:]):
         print(f"\tComparing '{name}' with simulated data ...")
-        stc_lt = modes.lifetimes(stc)
+        stc_lt = post_hoc.lifetimes(stc)
         # stc_lt.shape = (n_states, n_activations)
         for i, lt in enumerate(stc_lt):
             res = ks_2samp(sim_lt[i], lt, method="auto")
