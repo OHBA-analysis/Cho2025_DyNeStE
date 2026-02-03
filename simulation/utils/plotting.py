@@ -15,9 +15,9 @@ from itertools import zip_longest
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 from scipy.stats import gamma
 
-from osl_dynamics.array_ops import get_one_hot
-from osl_dynamics.analysis import modes
+from osl_dynamics.analysis import post_hoc
 from osl_dynamics.utils import plotting as osld_plotting
+from osl_dynamics.utils.array_ops import get_one_hot
 from osl_dynamics.utils.misc import override_dict_defaults
 from osl_dynamics.utils.plotting import create_figure, rough_square_axes
 
@@ -281,26 +281,24 @@ def plot_matrices(
             labelright=False,
         )
         if grid.shape[0] > 30:
-            # Don't label the ticks if there's too many
-            axis.set_xticklabels([])
-            axis.set_yticklabels([])
+            ticks = np.arange(grid.shape[0], step=10)
         else:
             ticks = np.arange(grid.shape[0], step=2)
-            axis.set_xticks(ticks)
-            axis.set_yticks(ticks)
-            # Set ytick labels only for the first column
-            if i % long == 0:
-                axis.set_yticklabels(ticks + 1)
-                axis.set_ylabel("Channels", fontsize=12)
-            else:
-                axis.set_yticklabels([])
-            # Set xtick labels only for the last row
-            if i >= len(matrix) - long:
-                axis.set_xticklabels(ticks + 1)
-                axis.set_xlabel("Channels", fontsize=12)
-            else:
-                axis.set_xticklabels([])
-            axis.tick_params(labelsize=12)
+        axis.set_xticks(ticks)
+        axis.set_yticks(ticks)
+        # Set ytick labels only for the first column
+        if i % long == 0:
+            axis.set_yticklabels(ticks + 1)
+            axis.set_ylabel("Channels", fontsize=12)
+        else:
+            axis.set_yticklabels([])
+        # Set xtick labels only for the last row
+        if i >= len(matrix) - long:
+            axis.set_xticklabels(ticks + 1)
+            axis.set_xlabel("Channels", fontsize=12)
+        else:
+            axis.set_xticklabels([])
+    axis.tick_params(labelsize=12)
 
     if group_color_scale:
         fig.subplots_adjust(right=0.8, wspace=0.2, hspace=0.01)
@@ -402,7 +400,7 @@ def _plot_state_lifetimes(
         plot_kwargs = {}
 
     # Calculate state lifetimes
-    channel_lifetimes = modes.lifetimes(state_time_course)
+    channel_lifetimes = post_hoc.lifetimes(state_time_course)
 
     # Create figure
     fig, axes = create_figure(short, long, **fig_kwargs)
