@@ -6,7 +6,7 @@ from pqdm.threads import pqdm
 from scipy import stats
 from scipy.spatial.distance import cosine
 
-from osl_dynamics.analysis import regression
+from osl_dynamics.utils.sklearn_wrappers import linear_regression
 from osl_dynamics.inference import modes
 from utils.analysis import compute_sw_state_time_course
 from utils.array_ops import window_shuffle
@@ -234,7 +234,7 @@ def split_half_permutation_test(
         power_1, power_2 = [], []
 
         for i in range(n_subjects_1):
-            pow_1 = regression.linear(
+            pow_1 = linear_regression(
                 sw_stcs_1[i],
                 np.diagonal(tv_covs_1[i], axis1=1, axis2=2),
                 fit_intercept=False,
@@ -242,7 +242,7 @@ def split_half_permutation_test(
             power_1.append(pow_1)
         
         for i in range(n_subjects_2):
-            pow_2 = regression.linear(
+            pow_2 = linear_regression(
                 sw_stcs_2[i],
                 np.diagonal(tv_covs_2[i], axis1=1, axis2=2),
                 fit_intercept=False,
