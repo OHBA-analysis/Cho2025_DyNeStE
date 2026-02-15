@@ -33,7 +33,7 @@ if __name__ == "__main__":
         raise ValueError("Data type must be one of ['study1', 'study2'].")
     
     # Set output directories
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/replay"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/replay"
     DATA_DIR = os.path.join(BASE_DIR, f"results/{data_type}/{model_type}/run{run_id}")
     FIG_DIR = os.path.join(DATA_DIR, "figures")
     os.makedirs(FIG_DIR, exist_ok=True)

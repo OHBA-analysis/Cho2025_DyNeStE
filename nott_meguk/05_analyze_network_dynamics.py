@@ -17,7 +17,7 @@ if __name__ == "__main__":
     print("Step 1: Setting up ...")
 
     # Set directory paths
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/nott_meguk"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/nott_meguk"
     DATA_DIR = os.path.join(BASE_DIR, "results/full/{0}/run{1}")
     FIG_DIR = os.path.join(BASE_DIR, "figures")
     os.makedirs(FIG_DIR, exist_ok=True)

@@ -26,7 +26,7 @@ if __name__ == "__main__":
     set_random_seed(run_id, op_determinism=True)
 
     # Set directories to store outputs
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/simulation"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/simulation"
     SAVE_DIR = os.path.join(BASE_DIR, f"results/hmm/run{run_id}")
     os.makedirs(SAVE_DIR, exist_ok=True)
 

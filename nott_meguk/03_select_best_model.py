@@ -28,7 +28,7 @@ if __name__ == "__main__":
         raise ValueError("Data type must be one of ['full', 'split1', 'split2'].")
 
     # Set data directories and file paths
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/nott_meguk"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/nott_meguk"
     DATA_DIR = os.path.join(BASE_DIR, f"results/{data_type}/{model_type}/run{{0}}")
     history_path = os.path.join(DATA_DIR, "model/history.pkl")
     inference_path = os.path.join(DATA_DIR, "inference/inf_params.pkl")

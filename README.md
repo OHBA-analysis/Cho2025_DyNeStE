@@ -1,4 +1,4 @@
-# Cho2025_DyNeStE
+# Cho2026_DyNeStE
 
 This repository contains the scripts and data for reproducing results in the "*Modelling Discrete States and Long-Term Dynamics in Functional Brain Networks*" paper.
 
@@ -31,4 +31,4 @@ osl-dynamics==2.1.5
 Once these steps are complete, you may clone or download this repository to your preferred directory, and you're ready to begin!
 
 ## 🪪 License
-Copyright (c) 2025 [SungJun Cho](https://github.com/scho97) and [OHBA Analysis Group](https://github.com/OHBA-analysis). `Cho2025_DyNeStE` is a free and open-source software licensed under the [MIT License](https://github.com/OHBA-analysis/Cho2025_DyNeStE/blob/main/LICENSE).
+Copyright (c) 2025 [SungJun Cho](https://github.com/scho97) and [OHBA Analysis Group](https://github.com/OHBA-analysis). `Cho2026_DyNeStE` is a free and open-source software licensed under the [MIT License](https://github.com/OHBA-analysis/Cho2026_DyNeStE/blob/main/LICENSE).

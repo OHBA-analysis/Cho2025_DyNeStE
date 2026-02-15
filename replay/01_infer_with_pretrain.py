@@ -41,7 +41,7 @@ if __name__ == "__main__":
         pretrain_run_id = 2
 
     # Set directories to load model and data
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/replay"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/replay"
     PRETRAIN_DIR = os.path.join(os.path.dirname(BASE_DIR), "nott_meguk")
     MODEL_DIR = os.path.join(
         PRETRAIN_DIR,

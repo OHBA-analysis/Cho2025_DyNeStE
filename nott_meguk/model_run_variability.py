@@ -32,7 +32,7 @@ if __name__ == "__main__":
         raise ValueError("Data type must be one of ['full', 'split1', 'split2'].")
 
     # Set data directories and file paths
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/nott_meguk"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/nott_meguk"
     DYNESTE_DIR = os.path.join(BASE_DIR, f"results/{data_type}/dyneste")
     HMM_DIR = os.path.join(BASE_DIR, f"results/{data_type}/hmm")
     FIG_DIR = os.path.join(BASE_DIR, f"figures")
