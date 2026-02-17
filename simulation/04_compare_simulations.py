@@ -4,7 +4,7 @@
 import os
 import numpy as np
 import pandas as pd
-from osl_dynamics.analysis import modes
+from osl_dynamics.analysis import post_hoc
 from utils import validate_nd_arrays, flatten_nested_data
 from utils import analysis as ua
 from utils import data as ud
@@ -20,6 +20,7 @@ if __name__ == "__main__":
     dyneste_run_ids = list(range(10))
     hmm_run_ids = list(range(10))
     n_states = 3
+    n_samples = 25600
 
     # Validate user inputs
     if len(dyneste_run_ids) != len(hmm_run_ids):
@@ -31,7 +32,7 @@ if __name__ == "__main__":
     n_runs = len(dyneste_run_ids)
 
     # Set directories
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/simulation"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/simulation"
     MODEL_DIR = os.path.join(BASE_DIR, "results")
     FIG_DIR = os.path.join(BASE_DIR, "figures")
     os.makedirs(FIG_DIR, exist_ok=True)
@@ -67,6 +68,11 @@ if __name__ == "__main__":
         # Load inferred parameters
         inf_params = ud.load_inf_params(model_dir, model_type, run_id)
 
+        # Get state time courses
+        sim_stc = inf_params["sim_stc"][:n_samples]
+        inf_stc = inf_params["inf_stc"][:n_samples]
+        sam_stc = inf_params["sam_stc"][:n_samples]
+
         # Get Dice coefficient
         dice = inf_params["dice_coefficient"]
 
@@ -76,9 +82,9 @@ if __name__ == "__main__":
         )
 
         # Compute state lifetimes
-        sim_lt = modes.lifetimes(inf_params["sim_stc"])
-        inf_lt = modes.lifetimes(inf_params["inf_stc"])
-        sam_lt = modes.lifetimes(inf_params["sam_stc"])
+        sim_lt = post_hoc.lifetimes(sim_stc)
+        inf_lt = post_hoc.lifetimes(inf_stc)
+        sam_lt = post_hoc.lifetimes(sam_stc)
         # *_lt.shape = (n_states, n_activations)
         lts = [sim_lt, inf_lt, sam_lt]
 
@@ -86,7 +92,7 @@ if __name__ == "__main__":
             "dice": dice,
             "rv_coeffs": rv_coeffs,
             "lts": lts,
-            "sim_stc": inf_params["sim_stc"],
+            "sim_stc": sim_stc,
         }
 
     # Process each model type for the current run index 'n'

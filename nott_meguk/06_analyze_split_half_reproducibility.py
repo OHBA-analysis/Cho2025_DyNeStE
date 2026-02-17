@@ -28,7 +28,7 @@ if __name__ == "__main__":
         raise ValueError("Model type must be one of ['dyneste', 'hmm'].")
 
     # Set output directories
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/nott_meguk"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/nott_meguk"
     DATA_DIR = os.path.join(BASE_DIR, "results/split{0}/{1}/run{2}")
     split1_dir = DATA_DIR.format(1, model_type, run_id_1)
     split2_dir = DATA_DIR.format(2, model_type, run_id_2)

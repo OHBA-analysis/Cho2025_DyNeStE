@@ -17,7 +17,7 @@ if __name__ == "__main__":
     print("Step 1: Setting up ...")
 
     # Set up directories
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/replay/data"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/replay/data"
     DATA_DIR = os.path.join(BASE_DIR, "raw")
 
     # Get data subdirectories

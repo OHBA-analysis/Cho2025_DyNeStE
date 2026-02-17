@@ -2,6 +2,7 @@
 
 # Import packages
 import os
+import numpy as np
 from sys import argv
 from osl_dynamics import data, simulation
 from osl_dynamics.inference import modes, metrics
@@ -25,9 +26,13 @@ if __name__ == "__main__":
     set_random_seed(run_id, op_determinism=True)
 
     # Set directories to store outputs
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/simulation"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/simulation"
     SAVE_DIR = os.path.join(BASE_DIR, f"results/dyneste/run{run_id}")
     os.makedirs(SAVE_DIR, exist_ok=True)
+
+    # Load real-data-based state-wise covariance matrices
+    cov = np.load(os.path.join(BASE_DIR, "sim_cov.npy"))
+    # shape: (n_states, n_channels, n_channels)
 
     # -------------- [2] Training Configurations -------------- #
     print("Step 2: Defining training configurations ...")
@@ -35,7 +40,7 @@ if __name__ == "__main__":
     # Define model hyperparameters
     config = Config(
         n_states=3,
-        n_channels=11,
+        n_channels=80,
         sequence_length=200,
         inference_n_units=128,
         inference_normalization="layer",
@@ -53,7 +58,7 @@ if __name__ == "__main__":
         final_gs_temperature=0.06,
         gs_annealing_slope=0.04,
         n_gs_annealing_epochs=120,
-        batch_size=16,
+        batch_size=64,
         learning_rate=5e-3,
         lr_decay=0.01,
         n_epochs=120,
@@ -64,11 +69,11 @@ if __name__ == "__main__":
 
     # Simulate data
     sim = simulation.HSMM_MVN(
-        n_samples=25600,
+        n_samples=256000,
         n_states=config.n_states,
         n_channels=config.n_channels,
         means="zero",
-        covariances="random",
+        covariances=cov,
         observation_error=0.0,
         gamma_shape=10,
         gamma_scale=5,

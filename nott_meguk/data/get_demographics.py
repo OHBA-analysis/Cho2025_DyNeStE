@@ -12,7 +12,7 @@ from glob import glob
 
 if __name__ == "__main__":
     # Define data directory
-    FIG_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/nott_meguk/data"
+    FIG_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/nott_meguk/data"
     RAW_DIR = "/well/woolrich/projects/mrc_meguk/public/"
     DATA_DIR = "/well/woolrich/projects/toolbox_paper/ctf_rest"
 

@@ -78,7 +78,7 @@ def match_order(ref_info, cmp_info, method="covariances"):
     cmp_data_type, cmp_model_type, cmp_id = cmp_info
 
     # Load inferred parameters
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/nott_meguk"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/nott_meguk"
     data_path = BASE_DIR + "/results/{}/{}/run{}/inference/inf_params.pkl"
     ref_params = load(data_path.format(ref_data_type, ref_model_type, ref_id))
     cmp_params = load(data_path.format(cmp_data_type, cmp_model_type, cmp_id))

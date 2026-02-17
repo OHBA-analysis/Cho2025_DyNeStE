@@ -28,7 +28,7 @@ if __name__ == "__main__":
         )
 
     # Set output directories
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_DyNeStE/nott_meguk"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_DyNeStE/nott_meguk"
     SAVE_DIR = os.path.join(BASE_DIR, f"results/{data_type}/dyneste/run{run_id}")
     os.makedirs(SAVE_DIR, exist_ok=True)
 
